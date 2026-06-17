@@ -25,7 +25,8 @@ public:
 	{
 		ImVec2 anchorPos;
 		ImVec2 anchorOffset;
-		bool   autoAnchor = true;
+		bool   autoAnchor    = true;
+		bool   hasClampedPos = false;
 	};
 
 	explicit QtyWidgetBase(Config a_config);
@@ -80,11 +81,11 @@ public:
 	FUCK::WindowFlags GetFlags() const override
 	{
 		FUCK::WindowFlags flags =
-			FUCK::WindowFlags::kNoDecoration |
-			FUCK::WindowFlags::kNoBackground |
+			FUCK::WindowFlags::kNoDecoration    |
+			FUCK::WindowFlags::kNoBackground    |
 			FUCK::WindowFlags::kIgnoreUserScale |
-			FUCK::WindowFlags::kAutoResize |
-			FUCK::WindowFlags::kNoResize;
+			FUCK::WindowFlags::kNoResize        |
+			FUCK::WindowFlags::kCustomPosition  ;
 
 		if (!FUCK::IsMenuOpen())
 			flags = flags | FUCK::WindowFlags::kPassInputToGame;
@@ -95,7 +96,6 @@ public:
 	ImVec2 GetDefaultPos() const override { return FUCK::Scale(_config.defaultPos); }
 	ImVec2 GetDefaultSize() const override { return { 0.0f, 0.0f }; }
 
-	bool GetRequestedPos(ImVec2& outPos) override;
 	bool OnAsyncInput(const void* e) override;
 
 	// --- Common Lifecycle Methods ---

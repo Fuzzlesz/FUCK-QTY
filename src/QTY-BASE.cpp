@@ -15,16 +15,6 @@ QtyWidgetBase::QtyWidgetBase(Config a_config) :
 // IWindow Overrides
 // ==================================================
 
-bool QtyWidgetBase::GetRequestedPos(ImVec2& outPos)
-{
-	ImVec2 bottomBarPos;
-	if (_state.autoAnchor && GetBottomBarPos(bottomBarPos))
-		outPos = ComputeAnchoredPos(bottomBarPos);
-	else
-		outPos = _state.anchorPos;
-	return true;
-}
-
 bool QtyWidgetBase::OnAsyncInput(const void* e)
 {
 	if (_hotkey.isBinding || FUCK::IsMenuOpen()) {
@@ -59,20 +49,30 @@ void QtyWidgetBase::Initialize()
 void QtyWidgetBase::LoadSettings()
 {
 	GetSettings().Load([this](CSimpleIniA& ini) {
-		_state.anchorPos.x    = FUCK::Scale(FUCK::INI::LoadFloat(ini, _config.iniSection, "X", _config.defaultPos.x));
-		_state.anchorPos.y    = FUCK::Scale(FUCK::INI::LoadFloat(ini, _config.iniSection, "Y", _config.defaultPos.y));
+		float savedX = FUCK::INI::LoadFloat(ini, _config.iniSection, "X", -1.0f);
+		float savedY = FUCK::INI::LoadFloat(ini, _config.iniSection, "Y", -1.0f);
+
+		if (savedX >= 0.0f && savedY >= 0.0f) {
+			_state.anchorPos.x = FUCK::Scale(savedX);
+			_state.anchorPos.y = FUCK::Scale(savedY);
+		} else {
+			_state.anchorPos.x = -1.0f;
+			_state.anchorPos.y = -1.0f;
+		}
+
 		_state.anchorOffset.x = FUCK::INI::LoadFloat(ini, _config.iniSection, "OffsetX", _config.defaultOffset.x);
 		_state.anchorOffset.y = FUCK::INI::LoadFloat(ini, _config.iniSection, "OffsetY", _config.defaultOffset.y);
 
-		_state.autoAnchor     = FUCK::INI::LoadBool(ini, _config.iniSection, "AutoAnchor", true);
+		_state.autoAnchor = FUCK::INI::LoadBool(ini, _config.iniSection, "AutoAnchor", true);
 		SharedWidgetAppearance::GetSingleton().Load(ini);
 	});
 
 	GetSettings().LoadKeybinds([this](CSimpleIniA& ini) {
-		_hotkey.kKey = FUCK::INI::LoadInt(ini, "Hotkeys", _config.iniKeyHotkey,  _config.defaultKey);
+		_hotkey.kKey = FUCK::INI::LoadInt(ini, "Hotkeys", _config.iniKeyHotkey, _config.defaultKey);
 		_hotkey.gKey = FUCK::INI::LoadInt(ini, "Hotkeys", _config.iniKeyGamepad, _config.defaultGPKey);
 	});
 }
+
 
 void QtyWidgetBase::SaveSettings()
 {
@@ -118,6 +118,20 @@ void QtyWidgetBase::OnMenuClose(const char* a_menuName)
 
 void QtyWidgetBase::Draw()
 {
+	auto initRes = FUCK::InitializeCustomPosition(
+		_state.anchorPos,
+		FUCK::Scale(_config.defaultPos),
+		FUCK::Scale(100.0f, 100.0f),
+		_state.hasClampedPos);
+
+	if (initRes == FUCK::PosInitResult::kNotReady) {
+		return;
+	}
+	if (initRes == FUCK::PosInitResult::kChanged) {
+		_currentPos = _state.anchorPos;
+		SaveSettings();
+	}
+
 	// Process logic regardless of visual visibility so hidden hotkeys still work
 	UpdateLogic();
 
@@ -142,15 +156,17 @@ void QtyWidgetBase::Draw()
 	bool   hasBottomBar = GetBottomBarPos(bottomBarPos);
 	ImVec2 expectedPos  = _state.autoAnchor && hasBottomBar ? ComputeAnchoredPos(bottomBarPos) : _state.anchorPos;
 
-	if (isEditing)
+	if (isEditing) {
 		HandlePositioning(expectedPos, bottomBarPos, hasBottomBar);
+	}
 
 	// Enforce lock to expected position when not actively dragging
-	if (!isEditing || !FUCK::IsMouseDown(0)) {
-		if (std::abs(_currentPos.x - expectedPos.x) > 0.5f || std::abs(_currentPos.y - expectedPos.y) > 0.5f) {
-			_currentPos = expectedPos;
-			FUCK::SetWindowPos(_currentPos, ImGuiCond_Always);
-		}
+	if (!isEditing || (!_isDragging && !FUCK::IsMouseDown(0))) {
+		_currentPos = expectedPos;
+		FUCK::SetWindowPos(_currentPos, ImGuiCond_Always);
+	} else if (_isDragging) {
+		// Update _currentPos during ImGui native drag so we can capture it upon release
+		_currentPos = FUCK::GetWindowPos();
 	}
 
 	FUCK::PushStyleColor(ImGuiCol_Text, appear.TextColorVec4());
@@ -331,18 +347,15 @@ void QtyWidgetBase::HandlePositioning(ImVec2& expectedPos, const ImVec2& bottomB
 	if (_isDragging && FUCK::IsMouseReleased(0)) {
 		_isDragging = false;
 
-		// Increased threshold to 1.0f to safely ignore ImGui's internal integer rounding
-		if (std::abs(_currentPos.x - expectedPos.x) > 1.0f || std::abs(_currentPos.y - expectedPos.y) > 1.0f) {
-			if (_state.autoAnchor && hasBottomBar) {
-				float scale           = FUCK::GetResolutionScale();
-				_state.anchorOffset.x = (_currentPos.x - bottomBarPos.x) / scale;
-				_state.anchorOffset.y = (_currentPos.y - bottomBarPos.y) / scale;
-			} else {
-				_state.anchorPos = _currentPos;
-			}
-			SaveSettings();
-			expectedPos = _currentPos;
+		if (_state.autoAnchor && hasBottomBar) {
+			float scale           = FUCK::GetResolutionScale();
+			_state.anchorOffset.x = (_currentPos.x - bottomBarPos.x) / scale;
+			_state.anchorOffset.y = (_currentPos.y - bottomBarPos.y) / scale;
+		} else {
+			_state.anchorPos = _currentPos;
 		}
+		SaveSettings();
+		expectedPos = _currentPos;
 	}
 
 	// Failsafe
