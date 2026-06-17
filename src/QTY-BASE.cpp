@@ -119,8 +119,8 @@ void QtyWidgetBase::Draw()
 {
 	auto initRes = FUCK::InitializeCustomPosition(
 		_state.anchorPos,
-		FUCK::Scale(_config.defaultPos),
-		FUCK::Scale(100.0f, 100.0f),
+		GetDefaultPos(),
+		GetDefaultSize(),
 		_state.hasClampedPos);
 
 	if (initRes == FUCK::PosInitResult::kNotReady) {
