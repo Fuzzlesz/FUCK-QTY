@@ -34,7 +34,7 @@ void QtyWidgetBase::Initialize()
 {
 	_hotkey.kKey     = _config.defaultKey;
 	_hotkey.gKey     = _config.defaultGPKey;
-	_state.anchorPos = FUCK::Scale(_config.defaultPos);
+	_state.anchorPos = { -1.0f, -1.0f };
 	_currentPos      = _state.anchorPos;
 	LoadSettings();
 
@@ -72,7 +72,6 @@ void QtyWidgetBase::LoadSettings()
 		_hotkey.gKey = FUCK::INI::LoadInt(ini, "Hotkeys", _config.iniKeyGamepad, _config.defaultGPKey);
 	});
 }
-
 
 void QtyWidgetBase::SaveSettings()
 {
