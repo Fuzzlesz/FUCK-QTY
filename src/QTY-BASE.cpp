@@ -52,13 +52,7 @@ void QtyWidgetBase::LoadSettings()
 		float savedX = FUCK::INI::LoadFloat(ini, _config.iniSection, "X", -1.0f);
 		float savedY = FUCK::INI::LoadFloat(ini, _config.iniSection, "Y", -1.0f);
 
-		if (savedX >= 0.0f && savedY >= 0.0f) {
-			_state.anchorPos.x = FUCK::Scale(savedX);
-			_state.anchorPos.y = FUCK::Scale(savedY);
-		} else {
-			_state.anchorPos.x = -1.0f;
-			_state.anchorPos.y = -1.0f;
-		}
+		_state.anchorPos = FUCK::Scale({ savedX, savedY });
 
 		_state.anchorOffset.x = FUCK::INI::LoadFloat(ini, _config.iniSection, "OffsetX", _config.defaultOffset.x);
 		_state.anchorOffset.y = FUCK::INI::LoadFloat(ini, _config.iniSection, "OffsetY", _config.defaultOffset.y);
@@ -120,7 +114,6 @@ void QtyWidgetBase::Draw()
 	auto initRes = FUCK::InitializeCustomPosition(
 		_state.anchorPos,
 		GetDefaultPos(),
-		GetDefaultSize(),
 		_state.hasClampedPos);
 
 	if (initRes == FUCK::PosInitResult::kNotReady) {

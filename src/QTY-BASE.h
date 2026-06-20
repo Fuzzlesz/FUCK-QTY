@@ -94,9 +94,8 @@ public:
 	}
 
 	ImVec2 GetDefaultPos() const override { return FUCK::Scale(_config.defaultPos); }
-	ImVec2 GetDefaultSize() const override { return { 0.0f, 0.0f }; }
 
-	bool OnAsyncInput(const void* e) override;
+	bool OnAsyncInput(const void* e) override
 
 	// --- Common Lifecycle Methods ---
 	void Initialize();
