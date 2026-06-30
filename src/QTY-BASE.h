@@ -85,6 +85,7 @@ public:
 			FUCK::WindowFlags::kNoBackground    |
 			FUCK::WindowFlags::kIgnoreUserScale |
 			FUCK::WindowFlags::kNoResize        |
+			FUCK::WindowFlags::kAutoResize      |
 			FUCK::WindowFlags::kCustomPosition  ;
 
 		if (!FUCK::IsMenuOpen())
