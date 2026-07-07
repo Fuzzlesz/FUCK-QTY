@@ -372,7 +372,11 @@ void QtyWidgetBase::HandlePositioning(ImVec2& expectedPos, const ImVec2& bottomB
 
 void QtyWidgetBase::DrawContextMenu(SharedWidgetAppearance& appear, ImVec2& expectedPos, const ImVec2& bottomBarPos, bool hasBottomBar)
 {
-	if (!FUCK::BeginPopupContextItem(_config.contextId, 1))
+	FUCK::PushStyleVar(ImGuiStyleVar_WindowPadding, FUCK::Scale(15.0f, 15.0f));
+	bool isPopupOpen = FUCK::BeginPopupContextItem(_config.contextId, 1);
+	FUCK::PopStyleVar();
+
+	if (!isPopupOpen)
 		return;
 
 	FUCK::Dummy(FUCK::UIScale(350.0f, 0.0f));
