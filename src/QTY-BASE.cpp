@@ -170,7 +170,14 @@ void QtyWidgetBase::Draw()
 		FUCK::HotkeyFlags::kAlwaysHighlight |
 		FUCK::HotkeyFlags::kNoModifiers     ;
 
+	float pad = FUCK::Scale(15.0f);
+	FUCK::SetCursorPos(ImVec2(pad, pad));
+
+	FUCK::BeginGroup();
 	FUCK::DrawManagedHotkey(FUCK::Translate(GetCustomLabel()), _hotkey, hkFlags, appear._cfg.iconScale, appear._cfg.labelScale);
+	FUCK::EndGroup();
+
+	ImVec2 itemMax = FUCK::GetItemRectMax();
 
 	// We pop style color before drawing the context menu so it reverts to the host theme
 	FUCK::PopStyleColor();
@@ -179,6 +186,13 @@ void QtyWidgetBase::Draw()
 		FUCK::SetTooltip("$QTY_RightClickConfigure"_T);
 		DrawContextMenu(appear, expectedPos, bottomBarPos, hasBottomBar);
 	}
+
+	// Calculate where the bottom right should be, and add the 15px bottom-right padding
+	ImVec2 winPos   = FUCK::GetWindowPos();
+	ImVec2 localMax = ImVec2(itemMax.x - winPos.x, itemMax.y - winPos.y);
+
+	FUCK::SetCursorPos(ImVec2(localMax.x + pad, localMax.y + pad));
+	FUCK::Dummy(ImVec2(0.0f, 0.0f));
 
 	if (isEditing) {
 		ImVec2 winMin  = FUCK::GetWindowPos();
@@ -358,11 +372,7 @@ void QtyWidgetBase::HandlePositioning(ImVec2& expectedPos, const ImVec2& bottomB
 
 void QtyWidgetBase::DrawContextMenu(SharedWidgetAppearance& appear, ImVec2& expectedPos, const ImVec2& bottomBarPos, bool hasBottomBar)
 {
-	FUCK::PushStyleVar(ImGuiStyleVar_WindowPadding, FUCK::Scale(15.0f, 15.0f));
-	bool isPopupOpen = FUCK::BeginPopupContextItem(_config.contextId, 1);
-	FUCK::PopStyleVar();
-
-	if (!isPopupOpen)
+	if (!FUCK::BeginPopupContextItem(_config.contextId, 1))
 		return;
 
 	FUCK::Dummy(FUCK::UIScale(350.0f, 0.0f));
