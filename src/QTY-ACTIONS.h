@@ -30,6 +30,9 @@ public:
 	const Config&        GetConfig() const { return _config; }
 	FUCK::ManagedHotkey& GetHotkey() { return _hotkey; }
 
+	// Whether the hotkey was held as of the last Update()
+	bool IsHeld() const { return _wasDown; }
+
 	void LoadKeybinds(CSimpleIniA& a_ini);
 	void SaveKeybinds(CSimpleIniA& a_ini) const;
 	void ResetKeybinds();

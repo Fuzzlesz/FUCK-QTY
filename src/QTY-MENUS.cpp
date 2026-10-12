@@ -3,8 +3,9 @@
 
 namespace
 {
-	// Where the menu's own updateBottomBar is kept once ours replaces it. Also marks the menu as done
-	constexpr const char* kOriginalMember = "_qtyUpdateBottomBar";
+	// Where the menu's own functions are kept once ours replace them. Also marks each as done
+	constexpr const char* kOriginalBottomBar      = "_qtyUpdateBottomBar";
+	constexpr const char* kOriginalQuantitySelect = "_qtyOnQuantityMenuSelect";
 
 	// The open item menu, set from its AdvanceMovie
 	struct ActiveMenu
@@ -98,6 +99,16 @@ namespace
 		}
 	}
 
+	// Runs the menu's own version of a function we've replaced
+	void CallOriginal(RE::GFxFunctionHandler::Params& a_params, const char* a_originalMember)
+	{
+		RE::GFxValue original;
+		if (a_params.thisPtr->GetMember(a_originalMember, &original) && original.IsObject()) {
+			// Function.call(this, args...). argsWithThisRef is exactly that list
+			original.Invoke("call", a_params.retVal, a_params.argsWithThisRef, a_params.argCount + 1);
+		}
+	}
+
 	// Stands in for the menu's updateBottomBar: runs the menu's own, then adds our hints after its buttons
 	class UpdateBottomBarHandler : public RE::GFxFunctionHandler
 	{
@@ -108,12 +119,7 @@ namespace
 				return;
 
 			RE::GFxValue& menu = *a_params.thisPtr;
-
-			RE::GFxValue original;
-			if (menu.GetMember(kOriginalMember, &original) && original.IsObject()) {
-				// Function.call(this, args...). argsWithThisRef is exactly that list
-				original.Invoke("call", a_params.retVal, a_params.argsWithThisRef, a_params.argCount + 1);
-			}
+			CallOriginal(a_params, kOriginalBottomBar);
 
 			// Only with an item selected, where the menu shows its item buttons, and only when there's more than one to split
 			const bool selected = a_params.argCount > 0 && a_params.args[0].IsBool() && a_params.args[0].GetBool();
@@ -122,14 +128,49 @@ namespace
 		}
 	};
 
-	// Swaps the menu's updateBottomBar for ours. Returns false while the menu isn't ready, to try again next frame
-	bool HookBottomBar(RE::GFxMovieView* a_movie)
+	// Stands in for the menu's onQuantityMenuSelect, which every transfer goes through with how many to move.
+	// With ONE held it moves one. The minimum count already covers most items, but not weightless ones
+	// taken from a container, which the menu moves as a whole stack before checking it
+	class QuantitySelectHandler : public RE::GFxFunctionHandler
+	{
+	public:
+		void Call(Params& a_params) override
+		{
+			if (!a_params.thisPtr)
+				return;
+
+			if (OneAction::GetSingleton()->IsHeld() && a_params.argCount > 0 && a_params.args[0].IsObject())
+				a_params.args[0].SetMember("amount", 1.0);
+
+			CallOriginal(a_params, kOriginalQuantitySelect);
+		}
+	};
+
+	// Puts a_handler in place of the menu's a_name, keeping the original in a_originalMember
+	bool ReplaceFunction(RE::GFxMovieView* a_movie, RE::GFxValue& a_menu, const char* a_name, const char* a_originalMember, RE::GFxFunctionHandler* a_handler)
+	{
+		if (a_menu.HasMember(a_originalMember))
+			return true;
+
+		RE::GFxValue original;
+		if (!a_menu.GetMember(a_name, &original) || !original.IsObject())
+			return false;
+
+		RE::GFxValue replacement;
+		a_movie->CreateFunction(&replacement, a_handler);
+		a_menu.SetMember(a_originalMember, original);
+		a_menu.SetMember(a_name, replacement);
+		return true;
+	}
+
+	// Swaps in our updateBottomBar and onQuantityMenuSelect. Returns false while the menu isn't ready, to try again next frame
+	bool HookMenuScripts(RE::GFxMovieView* a_movie)
 	{
 		RE::GFxValue menu;
 		if (!a_movie->GetVariable(&menu, "_root.Menu_mc") || !menu.IsObject())
 			return false;
 
-		if (menu.HasMember(kOriginalMember))
+		if (menu.HasMember(kOriginalBottomBar))
 			return true;
 
 		RE::GFxValue original, navPanel;
@@ -141,13 +182,18 @@ namespace
 			return false;
 		}
 
-		// Kept for the session, so the function never outlives its handler
-		static auto s_handler = RE::make_gptr<UpdateBottomBarHandler>();
+		// Kept for the session, so the functions never outlive their handlers
+		static auto s_bottomBarHandler      = RE::make_gptr<UpdateBottomBarHandler>();
+		static auto s_quantitySelectHandler = RE::make_gptr<QuantitySelectHandler>();
 
-		RE::GFxValue replacement;
-		a_movie->CreateFunction(&replacement, s_handler.get());
-		menu.SetMember(kOriginalMember, original);
-		menu.SetMember("updateBottomBar", replacement);
+		// Optional: without it, ONE still works on everything but weightless items taken from containers
+		static bool s_warnedQuantity = false;
+		if (!ReplaceFunction(a_movie, menu, "onQuantityMenuSelect", kOriginalQuantitySelect, s_quantitySelectHandler.get()) && !s_warnedQuantity) {
+			s_warnedQuantity = true;
+			logger::warn("{} has no onQuantityMenuSelect, so ONE can't split weightless stacks taken from containers", g_active.name);
+		}
+
+		ReplaceFunction(a_movie, menu, "updateBottomBar", kOriginalBottomBar, s_bottomBarHandler.get());
 
 		// Redraw the bar now, so the hints are there without waiting for the selection to change
 		RE::GFxValue selected(IsItemSelected(menu));
@@ -165,7 +211,7 @@ namespace
 		}
 
 		if (!g_active.hooked)
-			g_active.hooked = HookBottomBar(a_movie);
+			g_active.hooked = HookMenuScripts(a_movie);
 
 		for (auto* action : QtyActions())
 			action->Update(a_movie);
