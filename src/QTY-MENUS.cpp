@@ -16,13 +16,29 @@ namespace
 	};
 	ActiveMenu g_active;
 
+	bool GetItemList(const RE::GFxValue& a_menu, RE::GFxValue& a_itemList)
+	{
+		RE::GFxValue lists;
+		return a_menu.GetMember("inventoryLists", &lists) && lists.IsObject() &&
+		       lists.GetMember("itemList", &a_itemList) && a_itemList.IsObject();
+	}
+
 	bool IsItemSelected(const RE::GFxValue& a_menu)
 	{
-		RE::GFxValue index;
-		RE::GFxValue lists, itemList;
-		return a_menu.GetMember("inventoryLists", &lists) && lists.IsObject() &&
-		       lists.GetMember("itemList", &itemList) && itemList.IsObject() &&
+		RE::GFxValue itemList, index;
+		return GetItemList(a_menu, itemList) &&
 		       itemList.GetMember("selectedIndex", &index) && index.IsNumber() && index.GetNumber() != -1.0;
+	}
+
+	// How many of the selected item there are. 0 when nothing's selected
+	double GetSelectedCount(const RE::GFxValue& a_menu)
+	{
+		RE::GFxValue itemList, entry, count;
+		if (!GetItemList(a_menu, itemList) ||
+			!itemList.GetMember("selectedEntry", &entry) || !entry.IsObject() ||
+			!entry.GetMember("count", &count) || !count.IsNumber())
+			return 0.0;
+		return count.GetNumber();
 	}
 
 	// Adds a hint for each action this menu and device should show
@@ -99,9 +115,9 @@ namespace
 				original.Invoke("call", a_params.retVal, a_params.argsWithThisRef, a_params.argCount + 1);
 			}
 
-			// Only with an item selected, where the menu shows its item buttons
+			// Only with an item selected, where the menu shows its item buttons, and only when there's more than one to split
 			const bool selected = a_params.argCount > 0 && a_params.args[0].IsBool() && a_params.args[0].GetBool();
-			if (selected && IsItemSelected(menu))
+			if (selected && GetSelectedCount(menu) > 1.0)
 				AddHints(a_params.movie, menu);
 		}
 	};
