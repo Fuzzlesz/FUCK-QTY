@@ -1,7 +1,7 @@
 #pragma once
 
-#include "QTY-ALL.h"
-#include "QTY-ONE.h"
+#include "QTY-MENUS.h"
+#include "QTY-SHARED.h"
 
 class QTYTool : public FUCK::ITool
 {
@@ -29,13 +29,9 @@ namespace FUCK_Register
 {
 	inline void Install()
 	{
-		auto* one = OneWidget::GetSingleton();
-		auto* all = AllWidget::GetSingleton();
-		one->Initialize();
-		all->Initialize();
+		QtySettings::GetSingleton().Load();
 
-		FUCK::RegisterWindow(one);
-		FUCK::RegisterWindow(all);
+		QtyMenus::Install();
 
 		FUCK::RegisterTool(QTYTool::GetSingleton());
 	}

@@ -6,6 +6,7 @@ set(headers ${headers}
 	src/PCH.h
 	src/QTY-ALL.h
 	src/QTY-BASE.h
+	src/QTY-MENUS.h
 	src/QTY-ONE.h
 	src/QTY-SHARED.h
 )

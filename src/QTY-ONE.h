@@ -1,35 +1,26 @@
 #pragma once
 #include "QTY-BASE.h"
 
-class OneWidget : public QtyWidgetBase
+// Hold to move one item at a time, skipping the quantity prompt
+class OneAction final : public QtyAction
 {
 public:
-	static OneWidget* GetSingleton()
+	static OneAction* GetSingleton()
 	{
-		static OneWidget s;
+		static OneAction s;
 		return &s;
 	}
 
 protected:
-	int         GetOverrideCount() const override { return kBigCount; }
-	const char* GetCustomLabel() const override { return SharedWidgetAppearance::GetSingleton()._cfg.customOneLabel; }
+	int GetOverrideCount() const override { return kBigCount; }
 
 private:
 	// Sentinel
 	static constexpr int kBigCount = -1333444555;
 
-	OneWidget() :
-		QtyWidgetBase({ "$QTY_One_Title",
-			"ONE_Widget",
-			"ONE_Key", "ONE_GPKey",
-			29, 0,  // Ctrl is 29, Gamepad mapped offset is 0 (unmapped)
-			{ 100.0f, 100.0f },
-			{ 1.22f, -12.0f },
-			"$QTY_OneButton",
-			"QTY_One_Context",
-			"$QTY_ConfigTitle",
+	OneAction() :
+		QtyAction({ "ONE_Key", "ONE_GPKey",
+			29, 0,  // Left Ctrl, gamepad unbound
 			WidgetType::kOne })
-	{
-		QtySharedHotkeys::GetSingleton().one = &_hotkey;
-	}
+	{}
 };

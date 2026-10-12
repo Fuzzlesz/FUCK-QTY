@@ -1,4 +1,6 @@
 #include "QTY-SHARED.h"
+#include "QTY-ALL.h"
+#include "QTY-ONE.h"
 
 namespace
 {
@@ -27,47 +29,69 @@ namespace
 		FUCK::INI::SaveBool(ini, sec, "ShowInContainerGP",  vis.showInContainerGP,   def.showInContainerGP);
 		FUCK::INI::SaveBool(ini, sec, "ShowInBarterGP",     vis.showInBarterGP,      def.showInBarterGP);
 		FUCK::INI::SaveBool(ini, sec, "ShowInGiftGP",       vis.showInGiftGP,        def.showInGiftGP);
-		FUCK::INI::SaveBool(ini, sec, "ShowInInventoryGP" , vis.showInInventoryGP,   def.showInInventoryGP);
+		FUCK::INI::SaveBool(ini, sec, "ShowInInventoryGP",  vis.showInInventoryGP,   def.showInInventoryGP);
+	}
+
+	std::array<QtyAction*, 2> Actions()
+	{
+		return { OneAction::GetSingleton(), AllAction::GetSingleton() };
 	}
 }
 
 // ==================================================
-// SharedWidgetAppearance
+// QtySettings
 // ==================================================
 
-void SharedWidgetAppearance::Reset()
+bool QtySettings::ShowsHint(std::string_view a_menuName, WidgetType a_type, bool a_gamepad) const
 {
-	_cfg = _def;
+	const auto& vis = (a_type == WidgetType::kOne) ? _cfg.oneVis : _cfg.allVis;
+	if (vis.hideWidget)
+		return false;
+
+	if (a_menuName == RE::ContainerMenu::MENU_NAME)
+		return a_gamepad ? vis.showInContainerGP : vis.showInContainerKBM;
+	if (a_menuName == RE::BarterMenu::MENU_NAME)
+		return a_gamepad ? vis.showInBarterGP : vis.showInBarterKBM;
+	if (a_menuName == RE::GiftMenu::MENU_NAME)
+		return a_gamepad ? vis.showInGiftGP : vis.showInGiftKBM;
+	if (a_menuName == RE::InventoryMenu::MENU_NAME)
+		return a_gamepad ? vis.showInInventoryGP : vis.showInInventoryKBM;
+	return false;
 }
 
-void SharedWidgetAppearance::Load(CSimpleIniA& ini)
+void QtySettings::Load()
 {
-	_cfg.iconScale    = FUCK::INI::LoadFloat(ini, "Widget", "IconScale",  _def.iconScale);
-	_cfg.labelScale   = FUCK::INI::LoadFloat(ini, "Widget", "LabelScale", _def.labelScale);
-	_cfg.textColor[0] = FUCK::INI::LoadFloat(ini, "Widget", "TextColorR", _def.textColor[0]);
-	_cfg.textColor[1] = FUCK::INI::LoadFloat(ini, "Widget", "TextColorG", _def.textColor[1]);
-	_cfg.textColor[2] = FUCK::INI::LoadFloat(ini, "Widget", "TextColorB", _def.textColor[2]);
+	GetSettings().Load([this](CSimpleIniA& ini) {
+		LoadVis(ini, "Visibility_One", _cfg.oneVis, _def.oneVis);
+		LoadVis(ini, "Visibility_All", _cfg.allVis, _def.allVis);
 
-	LoadVis(ini, "Visibility_One", _cfg.oneVis, _def.oneVis);
-	LoadVis(ini, "Visibility_All", _cfg.allVis, _def.allVis);
+		FUCK::INI::LoadString(ini, "Appearance", "CustomOneLabel", _cfg.customOneLabel, _def.customOneLabel);
+		FUCK::INI::LoadString(ini, "Appearance", "CustomAllLabel", _cfg.customAllLabel, _def.customAllLabel);
+	});
 
-	FUCK::INI::LoadString(ini, "Appearance", "CustomOneLabel", _cfg.customOneLabel, _def.customOneLabel);
-	FUCK::INI::LoadString(ini, "Appearance", "CustomAllLabel", _cfg.customAllLabel, _def.customAllLabel);
+	GetSettings().LoadKeybinds([](CSimpleIniA& ini) {
+		for (auto* action : Actions())
+			action->LoadKeybinds(ini);
+	});
 }
 
-void SharedWidgetAppearance::Save(CSimpleIniA& ini) const
+void QtySettings::Save() const
 {
-	FUCK::INI::SaveDouble(ini, "Widget", "IconScale", _cfg.iconScale,     _def.iconScale);
-	FUCK::INI::SaveDouble(ini, "Widget", "LabelScale", _cfg.labelScale,   _def.labelScale);
-	FUCK::INI::SaveDouble(ini, "Widget", "TextColorR", _cfg.textColor[0], _def.textColor[0]);
-	FUCK::INI::SaveDouble(ini, "Widget", "TextColorG", _cfg.textColor[1], _def.textColor[1]);
-	FUCK::INI::SaveDouble(ini, "Widget", "TextColorB", _cfg.textColor[2], _def.textColor[2]);
+	GetSettings().Save([this](CSimpleIniA& ini) {
+		SaveVis(ini, "Visibility_One", _cfg.oneVis, _def.oneVis);
+		SaveVis(ini, "Visibility_All", _cfg.allVis, _def.allVis);
 
-	SaveVis(ini, "Visibility_One", _cfg.oneVis, _def.oneVis);
-	SaveVis(ini, "Visibility_All", _cfg.allVis, _def.allVis);
+		FUCK::INI::SaveString(ini, "Appearance", "CustomOneLabel", _cfg.customOneLabel, _def.customOneLabel);
+		FUCK::INI::SaveString(ini, "Appearance", "CustomAllLabel", _cfg.customAllLabel, _def.customAllLabel);
+	});
+}
 
-	FUCK::INI::SaveString(ini, "Appearance", "CustomOneLabel", _cfg.customOneLabel, _def.customOneLabel);
-	FUCK::INI::SaveString(ini, "Appearance", "CustomAllLabel", _cfg.customAllLabel, _def.customAllLabel);
+void QtySettings::SaveKeybinds() const
+{
+	GetSettings().SaveKeybinds([](CSimpleIniA& ini) {
+		for (const auto* action : Actions())
+			action->SaveKeybinds(ini);
+	});
 }
 
 // ==================================================
@@ -76,61 +100,42 @@ void SharedWidgetAppearance::Save(CSimpleIniA& ini) const
 
 bool QtyToolManager::ProcessInput(const void* e)
 {
-	auto& hk      = QtySharedHotkeys::GetSingleton();
-	bool  handled = false;
-
-	if (_localOne.isBinding && FUCK::UpdateManagedHotkey(e, _localOne)) {
-		if (hk.one) {
-			hk.one->kKey = _localOne.kKey;
-			hk.one->gKey = _localOne.gKey;
-		}
-		handled = true;
-	}
-	if (_localAll.isBinding && FUCK::UpdateManagedHotkey(e, _localAll)) {
-		if (hk.all) {
-			hk.all->kKey = _localAll.kKey;
-			hk.all->gKey = _localAll.gKey;
-		}
-		handled = true;
+	bool handled = false;
+	for (auto* action : Actions()) {
+		auto& hotkey = action->GetHotkey();
+		if (hotkey.isBinding && FUCK::UpdateManagedHotkey(e, hotkey))
+			handled = true;
 	}
 
-	if (handled) {
-		GetSettings().SaveKeybinds([&](CSimpleIniA& ini) {
-			if (hk.one) {
-				FUCK::INI::SaveInt(ini, "Hotkeys", "ONE_Key",   hk.one->kKey, 29);
-				FUCK::INI::SaveInt(ini, "Hotkeys", "ONE_GPKey", hk.one->gKey, 0);
-			}
-			if (hk.all) {
-				FUCK::INI::SaveInt(ini, "Hotkeys", "ALL_Key",   hk.all->kKey, 44);
-				FUCK::INI::SaveInt(ini, "Hotkeys", "ALL_GPKey", hk.all->gKey, 0);
-			}
-		});
-	}
+	if (handled)
+		QtySettings::GetSingleton().SaveKeybinds();
 	return handled;
 }
 
 void QtyToolManager::RenderToolUI()
 {
-	auto& appear = SharedWidgetAppearance::GetSingleton();
-	auto& hk     = QtySharedHotkeys::GetSingleton();
+	auto& settings = QtySettings::GetSingleton();
 
 	bool saveSettings = false;
+	bool saveKeybinds = false;
 
 	FUCK::Spacing(2);
 	FUCK::TextColored(ImVec4(0.5f, 0.8f, 1.0f, 1.0f), "$QTY_ConfigTitle"_T);
 	FUCK::Separator();
 	FUCK::Spacing();
 
-	auto drawVisConfig = [&](const char* title, VisibilityConfig& vis, const char* colsId) {
-		if (FUCK::TreeNode(title)) {
-			if (FUCK::Checkbox("$QTY_HideWidget"_T, &vis.hideWidget))
-				saveSettings = true;
-			FUCK::SetTooltip("$QTY_HideWidgetsTip"_T);
+	auto drawVisConfig = [&](const char* title, VisibilityConfig& vis, const char* tableId) {
+		if (!FUCK::TreeNode(title))
+			return;
 
-			FUCK::Dummy(FUCK::UIScale(0.0f, 5.0f));
-			FUCK::Columns(2, colsId, false);
+		if (FUCK::Checkbox("$QTY_HideWidget"_T, &vis.hideWidget))
+			saveSettings = true;
+		FUCK::SetTooltip("$QTY_HideWidgetsTip"_T);
 
+		FUCK::Dummy(FUCK::UIScale(0.0f, 5.0f));
+		if (FUCK::BeginTable(tableId, 2, FUCK::TableFlags::kSizingStretchSame)) {
 			// Column 1: KBM
+			FUCK::TableNextColumn();
 			FUCK::PushID("KBM");
 			FUCK::TextColored(ImVec4(0.5f, 0.8f, 1.0f, 1.0f), "$QTY_KBM"_T);
 			FUCK::Dummy(FUCK::UIScale(0.0f, 5.0f));
@@ -144,9 +149,8 @@ void QtyToolManager::RenderToolUI()
 				saveSettings = true;
 			FUCK::PopID();
 
-			FUCK::NextColumn();
-
 			// Column 2: Controller
+			FUCK::TableNextColumn();
 			FUCK::PushID("GP");
 			FUCK::TextColored(ImVec4(0.5f, 0.8f, 1.0f, 1.0f), "$QTY_Controller"_T);
 			FUCK::Dummy(FUCK::UIScale(0.0f, 5.0f));
@@ -160,13 +164,13 @@ void QtyToolManager::RenderToolUI()
 				saveSettings = true;
 			FUCK::PopID();
 
-			FUCK::Columns(1, nullptr, false);
-			FUCK::TreePop();
+			FUCK::EndTable();
 		}
+		FUCK::TreePop();
 	};
 
-	drawVisConfig("$QTY_VisibilityOne"_T, appear._cfg.oneVis, "VisColsOne");
-	drawVisConfig("$QTY_VisibilityAll"_T, appear._cfg.allVis, "VisColsAll");
+	drawVisConfig("$QTY_VisibilityOne"_T, settings._cfg.oneVis, "VisTableOne");
+	drawVisConfig("$QTY_VisibilityAll"_T, settings._cfg.allVis, "VisTableAll");
 
 	FUCK::Dummy(FUCK::UIScale(0.0f, 15.0f));
 
@@ -175,24 +179,11 @@ void QtyToolManager::RenderToolUI()
 	FUCK::Separator();
 	FUCK::Spacing();
 
-	FUCK::HotkeyFlags hkFlags =
-		FUCK::HotkeyFlags::kNoModifiers;
-
-	// Sync local hotkeys silently when not actively binding
-	if (!_localOne.isBinding && hk.one) {
-		_localOne.kKey = hk.one->kKey;
-		_localOne.gKey = hk.one->gKey;
-	}
-	if (!_localAll.isBinding && hk.all) {
-		_localAll.kKey = hk.all->kKey;
-		_localAll.gKey = hk.all->gKey;
-	}
-
-	// Draw hotkey rebinding replicas using local structs
-	if (hk.one)
-		FUCK::DrawManagedHotkey(FUCK::Translate(appear._cfg.customOneLabel), _localOne, hkFlags, 1.0f, 1.0f);
-	if (hk.all)
-		FUCK::DrawManagedHotkey(FUCK::Translate(appear._cfg.customAllLabel), _localAll, hkFlags, 1.0f, 1.0f);
+	// Bound straight onto the actions. ProcessInput() finishes the binding and saves it
+	auto* one = OneAction::GetSingleton();
+	auto* all = AllAction::GetSingleton();
+	FUCK::DrawManagedHotkey(settings.GetLabel(WidgetType::kOne), one->GetHotkey(), FUCK::HotkeyFlags::kNoModifiers);
+	FUCK::DrawManagedHotkey(settings.GetLabel(WidgetType::kAll), all->GetHotkey(), FUCK::HotkeyFlags::kNoModifiers);
 
 	FUCK::Dummy(FUCK::UIScale(0.0f, 15.0f));
 
@@ -201,11 +192,11 @@ void QtyToolManager::RenderToolUI()
 	FUCK::Separator();
 	FUCK::Spacing();
 
-	FUCK::InputText("$QTY_LabelOne"_T, appear._cfg.customOneLabel, sizeof(appear._cfg.customOneLabel));
+	FUCK::InputText("$QTY_LabelOne"_T, settings._cfg.customOneLabel, sizeof(settings._cfg.customOneLabel));
 	if (FUCK::IsItemDeactivatedAfterEdit())
 		saveSettings = true;
 
-	FUCK::InputText("$QTY_LabelAll"_T, appear._cfg.customAllLabel, sizeof(appear._cfg.customAllLabel));
+	FUCK::InputText("$QTY_LabelAll"_T, settings._cfg.customAllLabel, sizeof(settings._cfg.customAllLabel));
 	if (FUCK::IsItemDeactivatedAfterEdit())
 		saveSettings = true;
 
@@ -214,56 +205,21 @@ void QtyToolManager::RenderToolUI()
 	FUCK::Spacing();
 
 	if (FUCK::Button("$QTY_Unmap"_T)) {
-		if (hk.one)
-			hk.one->Clear();
-		if (hk.all)
-			hk.all->Clear();
-
-		saveSettings = true;
-
-		GetSettings().SaveKeybinds([&](CSimpleIniA& ini) {
-			if (hk.one) {
-				FUCK::INI::SaveInt(ini, "Hotkeys", "ONE_Key",   0, 29);
-				FUCK::INI::SaveInt(ini, "Hotkeys", "ONE_GPKey", 0, 0);
-			}
-			if (hk.all) {
-				FUCK::INI::SaveInt(ini, "Hotkeys", "ALL_Key",   0, 44);
-				FUCK::INI::SaveInt(ini, "Hotkeys", "ALL_GPKey", 0, 0);
-			}
-		});
+		for (auto* action : Actions())
+			action->GetHotkey().Clear();
+		saveKeybinds = true;
 	}
 
 	FUCK::SameLine();
 
 	if (FUCK::Button("$QTY_ResetToDefault"_T)) {
-		if (hk.one) {
-			hk.one->Clear();
-			hk.one->kKey = 29;
-			hk.one->gKey = 0;
-		}
-		if (hk.all) {
-			hk.all->Clear();
-			hk.all->kKey = 44;
-			hk.all->gKey = 0;
-		}
-
-		saveSettings = true;
-
-		GetSettings().SaveKeybinds([&](CSimpleIniA& ini) {
-			if (hk.one) {
-				FUCK::INI::SaveInt(ini, "Hotkeys", "ONE_Key",   hk.one->kKey, 29);
-				FUCK::INI::SaveInt(ini, "Hotkeys", "ONE_GPKey", hk.one->gKey, 0);
-			}
-			if (hk.all) {
-				FUCK::INI::SaveInt(ini, "Hotkeys", "ALL_Key",   hk.all->kKey, 44);
-				FUCK::INI::SaveInt(ini, "Hotkeys", "ALL_GPKey", hk.all->gKey, 0);
-			}
-		});
+		for (auto* action : Actions())
+			action->ResetKeybinds();
+		saveKeybinds = true;
 	}
 
-	if (saveSettings) {
-		GetSettings().Save([&](CSimpleIniA& ini) {
-			appear.Save(ini);
-		});
-	}
+	if (saveSettings)
+		settings.Save();
+	if (saveKeybinds)
+		settings.SaveKeybinds();
 }

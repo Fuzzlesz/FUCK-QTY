@@ -1,48 +1,42 @@
 #include "QTY-ALL.h"
 
-void AllWidget::ProcessExtraLogic(RE::UI* ui, bool hotkeyDown)
+void AllAction::ProcessExtraLogic(RE::GFxMovieView* a_movie, bool a_hotkeyDown)
 {
-	// Detect whether SkyUI's quantity slider is currently visible.
-	// If it is, we handle acceptance ourselves rather than letting the base logic do it.
-	bool isSkyUIPromptVisible = false;
-
-	auto m = ui->GetMenu(_activeMenu);
-	if (m && m->uiMovie) {
-		RE::GFxValue itemCard;
-		if (m->uiMovie->GetVariable(&itemCard, "_root.Menu_mc.itemCard") && itemCard.IsObject()) {
-			RE::GFxValue quantitySlider;
-			if (itemCard.GetMember("QuantitySlider_mc", &quantitySlider) && quantitySlider.IsObject()) {
-				RE::GFxValue alpha;
-				if (quantitySlider.GetMember("_alpha", &alpha) && alpha.IsNumber() && alpha.GetNumber() > 0.0) {
-					isSkyUIPromptVisible = true;
-				}
-			}
-		}
-	}
-
-	if (!isSkyUIPromptVisible) {
+	// Whether SkyUI's quantity slider is up
+	RE::GFxValue itemCard;
+	if (!a_movie->GetVariable(&itemCard, "_root.Menu_mc.itemCard") || !itemCard.IsObject()) {
 		_handledCurrentPrompt = false;
-	} else if (hotkeyDown && !_handledCurrentPrompt) {
-		_handledCurrentPrompt = true;
-
-		// We directly construct the payload Expected by SkyUI's ActionScript ItemCard.HandleQuantityMenuInput.
-		// This flawlessly replicates the "Accept" prompt across KBM and Controller mappings.
-		RE::GFxValue itemCard;
-		if (m->uiMovie->GetVariable(&itemCard, "_root.Menu_mc.itemCard") && itemCard.IsObject()) {
-			RE::GFxValue details;
-			m->uiMovie->CreateObject(&details);
-			details.SetMember("value", "keyDown");
-
-			RE::GFxValue enterCode;
-			if (m->uiMovie->GetVariable(&enterCode, "gfx.ui.NavigationCode.ENTER")) {
-				details.SetMember("navEquivalent", enterCode);
-			} else {
-				// Fallback to literal if gfx isn't accessible in root
-				details.SetMember("navEquivalent", "enter");
-			}
-
-			RE::GFxValue args[1]{ details };
-			itemCard.Invoke("HandleQuantityMenuInput", nullptr, args, 1);
-		}
+		return;
 	}
+
+	bool         promptVisible = false;
+	RE::GFxValue quantitySlider;
+	if (itemCard.GetMember("QuantitySlider_mc", &quantitySlider) && quantitySlider.IsObject()) {
+		RE::GFxValue alpha;
+		promptVisible = quantitySlider.GetMember("_alpha", &alpha) && alpha.IsNumber() && alpha.GetNumber() > 0.0;
+	}
+
+	if (!promptVisible) {
+		_handledCurrentPrompt = false;
+		return;
+	}
+
+	if (!a_hotkeyDown || _handledCurrentPrompt)
+		return;
+
+	_handledCurrentPrompt = true;
+
+	// The payload SkyUI's ItemCard.HandleQuantityMenuInput expects for "Accept", the same on KBM and controller
+	RE::GFxValue details;
+	a_movie->CreateObject(&details);
+	details.SetMember("value", "keyDown");
+
+	RE::GFxValue enterCode;
+	if (a_movie->GetVariable(&enterCode, "gfx.ui.NavigationCode.ENTER"))
+		details.SetMember("navEquivalent", enterCode);
+	else
+		details.SetMember("navEquivalent", "enter");
+
+	RE::GFxValue args[1]{ details };
+	itemCard.Invoke("HandleQuantityMenuInput", nullptr, args, 1);
 }

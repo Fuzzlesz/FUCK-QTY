@@ -2,7 +2,6 @@
 
 // ==================================================
 // Shared settings accessor.
-// All widgets read/write the same INI file via this singleton.
 // ==================================================
 
 inline FUCK::PluginSettings& GetSettings()
@@ -10,26 +9,6 @@ inline FUCK::PluginSettings& GetSettings()
 	static FUCK::PluginSettings s;
 	return s;
 }
-
-// ==================================================
-// Shared hotkeys registry
-// ==================================================
-
-struct QtySharedHotkeys
-{
-	FUCK::ManagedHotkey* one = nullptr;
-	FUCK::ManagedHotkey* all = nullptr;
-
-	static QtySharedHotkeys& GetSingleton()
-	{
-		static QtySharedHotkeys s;
-		return s;
-	}
-};
-
-// ==================================================
-// Shared visual appearance and visibility settings.
-// ==================================================
 
 enum class WidgetType
 {
@@ -52,59 +31,43 @@ struct VisibilityConfig
 	bool showInInventoryGP = false;
 };
 
-struct AppearanceConfig
+struct QtyConfig
 {
-	float                iconScale  = 1.0f;
-	float                labelScale = 1.0f;
-	std::array<float, 3> textColor{ 0.89f, 0.89f, 0.89f };
-
-	// Visibility
 	VisibilityConfig oneVis;
 	VisibilityConfig allVis;
 
-	// Custom Labels
 	char customOneLabel[64] = "$QTY_OneButton";
 	char customAllLabel[64] = "$QTY_AllButton";
 };
 
-struct SharedWidgetAppearance
-{
-	AppearanceConfig       _cfg;
-	const AppearanceConfig _def;
+// ==================================================
+// Settings
+// ==================================================
 
-	static SharedWidgetAppearance& GetSingleton()
+struct QtySettings
+{
+	QtyConfig       _cfg;
+	const QtyConfig _def;
+
+	static QtySettings& GetSingleton()
 	{
-		static SharedWidgetAppearance s;
+		static QtySettings s;
 		return s;
 	}
 
-	ImVec4 TextColorVec4() const
+	bool ShowsHint(std::string_view a_menuName, WidgetType a_type, bool a_gamepad) const;
+
+	const char* GetLabel(WidgetType a_type) const
 	{
-		return { _cfg.textColor[0], _cfg.textColor[1], _cfg.textColor[2], 1.0f };
+		return FUCK::Translate(a_type == WidgetType::kOne ? _cfg.customOneLabel : _cfg.customAllLabel);
 	}
 
-	bool IsMenuEnabled(const std::string& menuName, WidgetType type) const
-	{
-		const auto& vis       = (type == WidgetType::kOne) ? _cfg.oneVis : _cfg.allVis;
-		bool        isGamepad = (FUCK::GetInputDevice() == FUCK::InputDevice::kGamepad);
-
-		if (menuName == RE::ContainerMenu::MENU_NAME)
-			return isGamepad ? vis.showInContainerGP : vis.showInContainerKBM;
-		if (menuName == RE::BarterMenu::MENU_NAME)
-			return isGamepad ? vis.showInBarterGP : vis.showInBarterKBM;
-		if (menuName == RE::GiftMenu::MENU_NAME)
-			return isGamepad ? vis.showInGiftGP : vis.showInGiftKBM;
-		if (menuName == RE::InventoryMenu::MENU_NAME)
-			return isGamepad ? vis.showInInventoryGP : vis.showInInventoryKBM;
-		return true;
-	}
-
-	void Reset();
-	void Load(CSimpleIniA& ini);
-	void Save(CSimpleIniA& ini) const;
+	void Load();
+	void Save() const;
+	void SaveKeybinds() const;
 
 private:
-	SharedWidgetAppearance() = default;
+	QtySettings() = default;
 };
 
 // ==================================================
@@ -122,8 +85,4 @@ public:
 
 	bool ProcessInput(const void* e);
 	void RenderToolUI();
-
-private:
-	FUCK::ManagedHotkey _localOne;
-	FUCK::ManagedHotkey _localAll;
 };

@@ -1,1 +1,0 @@
-#include "QTY-ONE.h"
