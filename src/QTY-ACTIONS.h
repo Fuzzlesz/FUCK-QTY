@@ -70,11 +70,11 @@ public:
 	}
 
 protected:
-	int GetOverrideCount() const override { return kBigCount; }
+	int GetOverrideCount() const override { return kSkipPromptCount; }
 
 private:
 	// Below 1, so the menu moves one without asking
-	static constexpr int kBigCount = -1333444555;
+	static constexpr int kSkipPromptCount = -694208008;
 
 	OneAction() :
 		QtyAction({ "ONE_Key", "ONE_GPKey",
