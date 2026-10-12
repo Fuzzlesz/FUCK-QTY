@@ -55,7 +55,7 @@ public:
 			static float s_lastZoomProgress = 0.0f;
 			static bool  s_isZoomingOut     = false;
 
-			float currentZoom = inv3d->zoomProgress;
+			float currentZoom = inv3d->GetRuntimeData().zoomProgress;
 
 			if (currentZoom < s_lastZoomProgress) {
 				s_isZoomingOut = true;

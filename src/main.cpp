@@ -1,8 +1,5 @@
 #include "FUCK_Register.h"
 
-#include "QTY-ALL.h"
-#include "QTY-ONE.h"
-
 // ==========================================
 // SKSE Setup & Logging
 // ==========================================
@@ -26,8 +23,7 @@ void InitializeLog()
 	logger::info(FMT_STRING("{} v{}"), Version::PROJECT, Version::NAME);
 }
 
-#ifdef SKYRIM_AE
-extern "C" DLLEXPORT constinit auto SKSEPlugin_Version = []() {
+SKSE_EXPORT constinit auto SKSEPlugin_Version = []() {
 	SKSE::PluginVersionData v;
 	v.PluginVersion(Version::MAJOR);
 	v.PluginName("FUCK-QTY");
@@ -37,8 +33,8 @@ extern "C" DLLEXPORT constinit auto SKSEPlugin_Version = []() {
 	v.CompatibleVersions({ SKSE::RUNTIME_SSE_LATEST });
 	return v;
 }();
-#else
-extern "C" DLLEXPORT bool SKSEAPI SKSEPlugin_Query(const SKSE::QueryInterface* a_skse, SKSE::PluginInfo* a_info)
+
+SKSE_PLUGIN_QUERY(const SKSE::QueryInterface* a_skse, SKSE::PluginInfo* a_info)
 {
 	a_info->infoVersion = SKSE::PluginInfo::kVersion;
 	a_info->name        = "FUCK-QTY";
@@ -50,30 +46,19 @@ extern "C" DLLEXPORT bool SKSEAPI SKSEPlugin_Query(const SKSE::QueryInterface* a
 	}
 	return true;
 }
-#endif
 
-extern "C" DLLEXPORT bool SKSEAPI SKSEPlugin_Load(const SKSE::LoadInterface* a_skse)
+SKSE_PLUGIN_LOAD(const SKSE::LoadInterface* a_skse)
 {
 	InitializeLog();
 	SKSE::Init(a_skse, false);
 
-	const auto messaging = SKSE::GetMessagingInterface();
-	messaging->RegisterListener([](SKSE::MessagingInterface::Message* msg) {
-		if (msg->type == SKSE::MessagingInterface::kDataLoaded) {
+	SKSE::GetMessagingInterface()->RegisterListener([](SKSE::MessagingInterface::Message* a_msg) {
+		if (a_msg->type == SKSE::MessagingInterface::kDataLoaded) {
+			// Connect logs a version mismatch itself. False with nothing logged means FUCK isn't installed
 			if (FUCK::Connect("FUCK-QTY")) {
-				auto* one = OneWidget::GetSingleton();
-				auto* all = AllWidget::GetSingleton();
-
-				one->Initialize();
-				all->Initialize();
-
-				FUCK::RegisterWindow(one);
-				FUCK::RegisterWindow(all);
-
-				FUCK::RegisterTool(QTYTool::GetSingleton());
-
+				FUCK_Register::Install();
 			} else {
-				logger::error("FUCK.dll not found or version mismatch. Tool disabled.");
+				logger::error("FUCK not found or too old. QTY is disabled.");
 			}
 		}
 	});
