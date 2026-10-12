@@ -1,16 +1,10 @@
 #include "QTY-MENUS.h"
-#include "QTY-ALL.h"
-#include "QTY-ONE.h"
+#include "QTY-ACTIONS.h"
 
 namespace
 {
 	// Where the menu's own updateBottomBar is kept once ours replaces it. Also marks the menu as done
 	constexpr const char* kOriginalMember = "_qtyUpdateBottomBar";
-
-	std::array<QtyAction*, 2> Actions()
-	{
-		return { OneAction::GetSingleton(), AllAction::GetSingleton() };
-	}
 
 	// The open item menu, set from its AdvanceMovie
 	struct ActiveMenu
@@ -47,7 +41,7 @@ namespace
 		const auto& settings = QtySettings::GetSingleton();
 		bool        added    = false;
 
-		for (auto* action : Actions()) {
+		for (auto* action : QtyActions()) {
 			const auto& config = action->GetConfig();
 			if (!settings.ShowsHint(g_active.name, config.type, gamepad))
 				continue;
@@ -150,14 +144,14 @@ namespace
 		// A new menu: start clean
 		if (a_movie != g_active.movie) {
 			g_active = { a_movie, a_menuName };
-			for (auto* action : Actions())
+			for (auto* action : QtyActions())
 				action->Reset();
 		}
 
 		if (!g_active.hooked)
 			g_active.hooked = HookBottomBar(a_movie);
 
-		for (auto* action : Actions())
+		for (auto* action : QtyActions())
 			action->Update(a_movie);
 	}
 
@@ -197,7 +191,7 @@ namespace QtyMenus
 		g_menuListener = std::make_unique<FUCK::MenuEventListener>([](const char* a_menuName, bool a_opening) {
 			if (!a_opening && g_active.movie && g_active.name == a_menuName) {
 				g_active = {};
-				for (auto* action : Actions())
+				for (auto* action : QtyActions())
 					action->Reset();
 			}
 		});

@@ -4,9 +4,8 @@ set(headers ${headers}
 	src/API/IconsFontAwesome6.h
 	src/FUCK_Register.h
 	src/PCH.h
-	src/QTY-ALL.h
-	src/QTY-BASE.h
+	src/QTY-ACTIONS.h
 	src/QTY-MENUS.h
-	src/QTY-ONE.h
-	src/QTY-SHARED.h
+	src/QTY-SETTINGS.h
+	src/QTY-TOOL.h
 )

@@ -1,34 +1,14 @@
 #pragma once
 
 #include "QTY-MENUS.h"
-#include "QTY-SHARED.h"
-
-class QTYTool : public FUCK::ITool
-{
-public:
-	static QTYTool* GetSingleton()
-	{
-		static QTYTool s;
-		return &s;
-	}
-
-	const char* Name() const override { return "$QTY_ConfigTitle"_T; }
-
-	void Draw() override
-	{
-		QtyToolManager::GetSingleton()->RenderToolUI();
-	}
-
-	bool OnAsyncInput(const void* e) override
-	{
-		return QtyToolManager::GetSingleton()->ProcessInput(e);
-	}
-};
+#include "QTY-SETTINGS.h"
+#include "QTY-TOOL.h"
 
 namespace FUCK_Register
 {
 	inline void Install()
 	{
+		// Settings and hotkeys first, so they're right from the first menu
 		QtySettings::GetSingleton().Load();
 
 		QtyMenus::Install();
