@@ -42,6 +42,22 @@ namespace
 		return count.GetNumber();
 	}
 
+	// Weightless items taken from a container move as a whole stack without asking (ContainerMenu.startItemTransfer),
+	// so the ALL hint has nothing to add there. Storing them still asks, so it stays for that
+	bool TakesWholeStack(RE::GFxValue& a_menu)
+	{
+		// Only the container menu has this, so the other menus are never a take
+		RE::GFxValue viewingContainer;
+		if (!a_menu.Invoke("isViewingContainer", &viewingContainer, nullptr, 0) ||
+			!viewingContainer.IsBool() || !viewingContainer.GetBool())
+			return false;
+
+		RE::GFxValue itemCard, itemInfo, weight;
+		return a_menu.GetMember("itemCard", &itemCard) && itemCard.IsObject() &&
+		       itemCard.GetMember("itemInfo", &itemInfo) && itemInfo.IsObject() &&
+		       itemInfo.GetMember("weight", &weight) && weight.IsNumber() && weight.GetNumber() == 0.0;
+	}
+
 	// Adds a hint for each action this menu and device should show
 	void AddHints(RE::GFxMovie* a_movie, RE::GFxValue& a_menu)
 	{
@@ -55,12 +71,15 @@ namespace
 		                           platform.GetNumber() != 0.0 :
 		                           FUCK::GetInputDevice() == FUCK::InputDevice::kGamepad;
 
-		const auto& settings = QtySettings::GetSingleton();
-		bool        added    = false;
+		const auto& settings  = QtySettings::GetSingleton();
+		const bool  wholeTake = TakesWholeStack(a_menu);
+		bool        added     = false;
 
 		for (auto* action : QtyActions()) {
 			const auto& config = action->GetConfig();
 			if (!settings.ShowsHint(g_active.name, config.type, gamepad))
+				continue;
+			if (config.type == ActionType::kAll && wholeTake)
 				continue;
 
 			// FUCK's key codes are SKSE's, which is what SkyUI's buttons take
