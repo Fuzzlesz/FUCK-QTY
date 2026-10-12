@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.21)
 
 set(NAME "FUCK-QTY" CACHE STRING "")
-set(VERSION 1.0.7)
+set(VERSION 2.0.0)
 
 # ---- Project ----
 
